@@ -3,26 +3,6 @@ use super::console;
 
 const PX: &str = "██";
 
-pub struct Drawable {
-  pub pixels: Vec<Pixel>,
-}
-
-impl std::fmt::Display for Drawable {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let mut pixels: Vec<String> = Vec::with_capacity(self.pixels.len());
-    for px in self.pixels.iter() {
-      pixels.push(px.to_string());
-    }
-    write!(f, "{}", pixels.join(""))
-  }
-}
-
-impl From<Vec<Pixel>> for Drawable {
-  fn from(pixels: Vec<Pixel>) -> Self {
-    Self { pixels }
-  }
-}
-
 pub struct Pixel {
   pub color: Color,
   pub x: u16,

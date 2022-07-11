@@ -2,7 +2,7 @@ use console;
 mod drawable;
 
 use std::{rc::Rc, cell::RefCell, time::Duration};
-pub use drawable::Drawable;
+pub use drawable::Pixel;
 use crossterm::event::{poll, read};
 pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
@@ -30,7 +30,7 @@ impl Renderer {
       loop {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
-        let drawables: &Vec<Drawable>;
+        let pixels: SingleOrMulti<Pixel>;
         if let Ok(true) = poll(Duration::from_millis(0)) {
           let event = read().unwrap();
           if event == exit_event {
@@ -40,15 +40,19 @@ impl Renderer {
             println!("\nExiting...");
             break
           }
-          drawables = handler_borrow.update(Some(event));
+          pixels = handler_borrow.update(Some(event));
         } else {
-          drawables = handler_borrow.update(None);
+          pixels = handler_borrow.update(None);
         }
 
-        let mut drawable_draws: Vec<String> = Vec::with_capacity(drawables.len());
-        for drawable in drawables.iter() {
-          drawable_draws.push(drawable.to_string());
-        }
+        let draws = match pixels {
+          SingleOrMulti::Single(px) => {
+            px.to_string()
+          },
+          SingleOrMulti::Multi(pxs) => {
+            pxs.iter().map(|px| px.to_string()).collect::<Vec<_>>().join("")
+          }
+        };
 
         print!(
           "{hide_cursor}{pos_start}{empty_scene}{pos_last}\
@@ -56,7 +60,6 @@ impl Renderer {
           {draws}{show_cursor}",
           hide_cursor = console::seq::CURSOR_HIDE,
           pos_start = console::seq::CURSOR_START,
-          draws = drawable_draws.join(""),
           show_cursor = console::seq::CURSOR_SHOW,
           green = console::seq::fg_rgb(150, 255, 120)
         );
@@ -86,8 +89,13 @@ impl Renderer {
   }
 }
 
+pub enum SingleOrMulti<'a, T> {
+  Single(&'a T),
+  Multi(&'a Vec<T>),
+}
+
 pub trait EventHandler {
-  fn update(&mut self, event: Option<Event>) -> &Vec<Drawable> ;
+  fn update(&mut self, event: Option<Event>) -> SingleOrMulti<Pixel>;
 }
 
 pub fn is_key_pressed(event: Event, code: KeyCode) -> bool {
