@@ -31,6 +31,7 @@ impl Renderer {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
         let pixels: SingleOrMulti<Pixel>;
+        let timedelta = if fps > 0 {1.0 / fps as f64} else {0.0};
         if let Ok(true) = poll(Duration::from_millis(0)) {
           let event = read().unwrap();
           if event == exit_event {
@@ -40,9 +41,9 @@ impl Renderer {
             println!("\nExiting...");
             break
           }
-          pixels = handler_borrow.update(Some(event));
+          pixels = handler_borrow.update(Some(event), timedelta);
         } else {
-          pixels = handler_borrow.update(None);
+          pixels = handler_borrow.update(None, timedelta);
         }
 
         let draws = match pixels {
@@ -97,7 +98,7 @@ pub enum SingleOrMulti<'a, T> {
 }
 
 pub trait EventHandler {
-  fn update(&mut self, event: Option<Event>) -> SingleOrMulti<Pixel>;
+  fn update(&mut self, event: Option<Event>, timedelta: f64) -> SingleOrMulti<Pixel>;
 }
 
 pub fn is_key_pressed(event: Event, code: KeyCode) -> bool {
