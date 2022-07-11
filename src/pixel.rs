@@ -3,6 +3,7 @@ use super::console;
 
 const PX: &str = "██";
 
+#[derive(Debug)]
 pub struct Pixel {
   pub color: Color,
   pub x: u16,
@@ -35,6 +36,16 @@ impl From<(u16, u16)> for Pixel {
   }
 }
 
+impl From<(u16, u16, Color)> for Pixel {
+  fn from(px: (u16, u16, Color)) -> Self {
+    Self {
+      color: px.2,
+      x: px.0,
+      y: px.1,
+    }
+  }
+}
+
 impl From<(u16, u16, u8, u8, u8)> for Pixel {
   fn from(px: (u16, u16, u8, u8, u8)) -> Self {
     Self {
@@ -58,6 +69,12 @@ impl Color {
     self.g = rng.gen::<u8>();
     self.b = rng.gen::<u8>();
     self
+  }
+}
+
+impl std::fmt::Debug for Color {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "rgb({},{},{})", self.r, self.g, self.b)
   }
 }
 

@@ -1,8 +1,8 @@
 use console;
-mod drawable;
+mod pixel;
 
-use std::{rc::Rc, cell::RefCell, time::Duration};
-pub use drawable::Pixel;
+use std::{rc::Rc, cell::RefCell, time::Duration, collections::VecDeque};
+pub use pixel::{Pixel, Color};
 use crossterm::event::{poll, read};
 pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
@@ -54,16 +54,18 @@ impl Renderer {
           }
         };
 
-        print!(
+        println!(
           "{hide_cursor}{pos_start}{empty_scene}{pos_last}\
           CTRL + Q to exit - FPS: {green}{fps}\
-          {draws}{show_cursor}",
+          {draws}",
           hide_cursor = console::seq::CURSOR_HIDE,
           pos_start = console::seq::CURSOR_START,
-          show_cursor = console::seq::CURSOR_SHOW,
           green = console::seq::fg_rgb(150, 255, 120)
         );
-        fps = Renderer::sync_fps(self.fps, timer.elapsed().as_millis().try_into().unwrap());
+        fps = Renderer::sync_fps(
+          self.fps,
+          timer.elapsed().as_millis().try_into().unwrap(),
+        );
       }
     } else {
       console::fg(console::FG::BrightRed);
@@ -91,7 +93,7 @@ impl Renderer {
 
 pub enum SingleOrMulti<'a, T> {
   Single(&'a T),
-  Multi(&'a Vec<T>),
+  Multi(&'a VecDeque<T>),
 }
 
 pub trait EventHandler {
