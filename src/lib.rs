@@ -30,7 +30,7 @@ impl Renderer {
       loop {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
-        let pixels: SingleOrMulti<Pixel>;
+        let pixels: Group<Pixel>;
         let timedelta = if fps > 0 {1.0 / fps as f64} else {0.0};
         if let Ok(true) = poll(Duration::from_millis(0)) {
           let event = read().unwrap();
@@ -47,10 +47,10 @@ impl Renderer {
         }
 
         let draws = match pixels {
-          SingleOrMulti::Single(px) => {
+          Group::Single(px) => {
             px.to_string()
           },
-          SingleOrMulti::Multi(pxs) => {
+          Group::Multi(pxs) => {
             pxs.iter().map(|px| px.to_string()).collect::<Vec<_>>().join("")
           }
         };
@@ -92,13 +92,13 @@ impl Renderer {
   }
 }
 
-pub enum SingleOrMulti<'a, T> {
+pub enum Group<'a, T> {
   Single(&'a T),
   Multi(&'a VecDeque<T>),
 }
 
 pub trait EventHandler {
-  fn update(&mut self, event: Option<Event>, timedelta: f64) -> SingleOrMulti<Pixel>;
+  fn update(&mut self, event: Option<Event>, timedelta: f64) -> Group<Pixel>;
 }
 
 pub fn is_key_pressed(event: Event, code: KeyCode) -> bool {
