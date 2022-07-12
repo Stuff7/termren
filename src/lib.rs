@@ -1,23 +1,25 @@
-use console;
+pub use console;
 mod pixel;
 
-use std::{rc::Rc, cell::RefCell, time::Duration, collections::VecDeque};
+use std::{rc::Rc, cell::RefCell, time::Duration};
 pub use pixel::{Pixel, Color};
 use crossterm::event::{poll, read};
 pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 pub struct Renderer {
+  ctx: Context,
   fps: u32,
   handler: Rc<RefCell<dyn EventHandler>>,
 }
 
 impl Renderer {
   pub fn new(handler: Rc<RefCell<dyn EventHandler>>) -> Self {
-    Self { fps: 0, handler }
+    Self { ctx: Context::new(), fps: 0, handler }
   }
 
   pub fn run(&mut self) {
     if let Some((w, h)) = console::size() {
+      self.ctx.console_size = (w, h).into();
       console::clear();
       let exit_event = Event::Key(KeyEvent {
         code: KeyCode::Char('q'),
@@ -31,7 +33,8 @@ impl Renderer {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
         let pixels: Group<Pixel>;
-        let timedelta = if fps > 0 {1.0 / fps as f64} else {0.0};
+        let ui;
+        self.ctx.timedelta = if fps > 0 {1.0 / fps as f64} else {0.0};
         if let Ok(true) = poll(Duration::from_millis(0)) {
           let event = read().unwrap();
           if event == exit_event {
@@ -41,9 +44,11 @@ impl Renderer {
             println!("\nExiting...");
             break
           }
-          pixels = handler_borrow.update(Some(event), timedelta);
+          self.ctx.event = Some(event);
+          (pixels, ui) = handler_borrow.update(&self.ctx);
         } else {
-          pixels = handler_borrow.update(None, timedelta);
+          self.ctx.event = None;
+          (pixels, ui) = handler_borrow.update(&self.ctx);
         }
 
         let draws = match pixels {
@@ -58,10 +63,11 @@ impl Renderer {
         println!(
           "{hide_cursor}{pos_start}{empty_scene}{pos_last}\
           CTRL + Q to exit - FPS: {green}{fps}\
-          {draws}",
+          {ui}{draws}",
           hide_cursor = console::seq::CURSOR_HIDE,
           pos_start = console::seq::CURSOR_START,
-          green = console::seq::fg_rgb(150, 255, 120)
+          green = console::seq::fg_rgb(150, 255, 120),
+          ui = ui.unwrap_or_default(),
         );
         fps = Renderer::sync_fps(
           self.fps,
@@ -92,15 +98,34 @@ impl Renderer {
   }
 }
 
+pub struct Context {
+  pub console_size: Size,
+  pub timedelta: f64,
+  pub event: Option<Event>,
+}
+
+impl Context {
+  pub fn new() -> Self {
+    Self { console_size: (0, 0).into(), timedelta: 0.0, event: None }
+  }
+}
+
+pub struct Size {
+  pub width: u16,
+  pub height: u16,
+}
+
+impl From<(u16, u16)> for Size {
+  fn from(size: (u16, u16)) -> Self {
+    Self { width: size.0, height: size.1 }
+  }
+}
+
 pub enum Group<'a, T> {
   Single(&'a T),
-  Multi(&'a VecDeque<T>),
+  Multi(&'a [T]),
 }
 
 pub trait EventHandler {
-  fn update(&mut self, event: Option<Event>, timedelta: f64) -> Group<Pixel>;
-}
-
-pub fn is_key_pressed(event: Event, code: KeyCode) -> bool {
-  event == Event::Key(code.into())
+  fn update(&mut self, ctx: &Context) -> (Group<Pixel>, Option<String>);
 }
