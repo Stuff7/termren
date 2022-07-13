@@ -8,13 +8,13 @@ pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 pub struct Renderer {
   ctx: Context,
-  fps: u32,
+  fps_capper: FPSCapper,
   handler: Rc<RefCell<dyn EventHandler>>,
 }
 
 impl Renderer {
   pub fn new(handler: Rc<RefCell<dyn EventHandler>>) -> Self {
-    Self { ctx: Context::new(), fps: 0, handler }
+    Self { ctx: Context::new(), fps_capper: FPSCapper::new(0), handler }
   }
 
   pub fn run(&mut self) {
@@ -27,14 +27,16 @@ impl Renderer {
       });
       let empty_scene = " ".repeat(w.into()).repeat(h.into());
       let pos_last = console::seq::goto(1, h);
-      let mut fps = 0;
+      let green = console::seq::fg_rgb(150, 255, 120);
 
       loop {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
         let pixels: Group<Pixel>;
         let ui;
-        self.ctx.timedelta = if fps > 0 {1.0 / fps as f64} else {0.0};
+        self.ctx.timedelta = if self.fps_capper.fps > 0 {
+          1.0 / self.fps_capper.fps as f64
+        } else {0.0};
         if let Ok(true) = poll(Duration::from_millis(0)) {
           let event = read().unwrap();
           if event == exit_event {
@@ -66,13 +68,10 @@ impl Renderer {
           {ui}{draws}",
           hide_cursor = console::seq::CURSOR_HIDE,
           pos_start = console::seq::CURSOR_START,
-          green = console::seq::fg_rgb(150, 255, 120),
           ui = ui.unwrap_or_default(),
+          fps = self.fps_capper.fps,
         );
-        fps = Renderer::sync_fps(
-          self.fps,
-          timer.elapsed().as_millis().try_into().unwrap(),
-        );
+        self.fps_capper.cap(timer.elapsed().as_millis().try_into().unwrap());
       }
     } else {
       console::fg(console::FG::BrightRed);
@@ -82,19 +81,40 @@ impl Renderer {
   }
 
   pub fn set_fps(&mut self, fps: u32) -> &mut Self {
-    self.fps = fps;
+    self.fps_capper.set(fps);
+    self
+  }
+}
+
+struct FPSCapper {
+  pub fps: u32,
+  fps_limit: u32,
+  ms_per_frame: u32,
+}
+
+impl FPSCapper {
+  pub fn new(fps_limit: u32) -> Self {
+    Self {
+      fps: fps_limit,
+      fps_limit,
+      ms_per_frame: if fps_limit > 0 {1000 / fps_limit} else {0}
+    }
+  }
+
+  pub fn set(&mut self, fps_limit: u32) -> &mut Self {
+    self.fps_limit = fps_limit;
+    self.ms_per_frame = if fps_limit > 0 {1000 / fps_limit} else {0};
     self
   }
 
-  fn sync_fps(limit: u32, elapsed_ms: u32) -> i64 {
-    if limit > 0 && limit > elapsed_ms {
-      let fps = (limit - elapsed_ms) as i64;
-      let ms_to_sleep: i64 = (1000 as i64) / fps;
-      if ms_to_sleep > 0 {
-        std::thread::sleep(Duration::from_millis(ms_to_sleep.try_into().unwrap()));
-        fps
-      } else { 0 }
-    } else { 0 }
+  pub fn cap(&mut self, last_frame_ms: u32) {
+    if self.fps_limit > 0 && last_frame_ms < self.ms_per_frame {
+      let ms_to_sleep = self.ms_per_frame - last_frame_ms;
+      std::thread::sleep(Duration::from_millis(ms_to_sleep.try_into().unwrap()));
+      self.fps = self.fps_limit;
+    } else {
+      self.fps = if last_frame_ms > 0 {1000 / last_frame_ms} else {1000};
+    }
   }
 }
 
