@@ -13,8 +13,8 @@ pub struct Pixel {
 
 impl Pixel {
   pub fn randomize_position(&mut self, console_w: u16, console_h: u16) -> &mut Self {
-    self.x = rand::thread_rng().gen_range(0..console_w);
-    self.y = rand::thread_rng().gen_range(0..console_h);
+    self.x = rand::thread_rng().gen_range(1..console_w);
+    self.y = rand::thread_rng().gen_range(1..console_h);
     self
   }
 
@@ -22,7 +22,7 @@ impl Pixel {
     let pos = console::seq::goto(self.x, self.y);
     let color = console::seq::fg_rgb(self.color.r, self.color.g, self.color.b);
     let mut px = String::with_capacity(
-      pos.len() + color.len() + self.texture.len() + console::seq::RESET.len() + 1
+      pos.len() + color.len() + self.texture.len() + console::seq::RESET.len()
     );
     px.push_str(&pos);
     px.push_str(&color);
@@ -60,9 +60,6 @@ impl From<(u16, u16)> for Pixel {
 
 impl From<(u16, u16, Color, &'static str)> for Pixel {
   fn from(px: (u16, u16, Color, &'static str)) -> Self {
-    if px.3.chars().count() > 2 {
-      panic!("Pixel texture can't be more than 2 characters long!");
-    }
     Self {
       texture: px.3,
       color: px.2,
