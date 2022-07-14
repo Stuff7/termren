@@ -28,7 +28,7 @@ impl Renderer {
       let empty_scene = " ".repeat(w.into()).repeat(h.into());
       let pos_last = console::seq::goto(1, h);
       let green = console::seq::fg_rgb(150, 255, 120);
-
+      let mut profiler1_r = 0 as u128;
       loop {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
@@ -53,24 +53,28 @@ impl Renderer {
           (pixels, ui) = handler_borrow.update(&self.ctx);
         }
 
+        let profiler2 = std::time::Instant::now();
         let draws = match pixels {
           Group::Single(px) => {
             px.to_string()
           },
           Group::Multi(pxs) => {
-            pxs.iter().map(|px| px.to_string()).collect::<Vec<_>>().join("")
+            pxs.iter().map(|px| px.to_string()).collect::<String>()
           }
         };
+        let profiler2_r = profiler2.elapsed().as_millis();
 
+        let profiler1 = std::time::Instant::now();
         println!(
           "{hide_cursor}{pos_start}{empty_scene}{pos_last}\
-          CTRL + Q to exit - FPS: {green}{fps}\
+          CTRL + Q to exit - FPS: {green}{fps} - {profiler1_r} - {profiler2_r}\
           {ui}{draws}",
           hide_cursor = console::seq::CURSOR_HIDE,
           pos_start = console::seq::CURSOR_START,
           ui = ui.unwrap_or_default(),
           fps = self.fps_capper.fps,
         );
+        profiler1_r = profiler1.elapsed().as_millis();
         self.fps_capper.cap(timer.elapsed().as_millis().try_into().unwrap());
       }
     } else {

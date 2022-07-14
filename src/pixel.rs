@@ -1,11 +1,11 @@
 use rand::Rng;
 use super::console;
 
-const PX: [char; 2] = ['█', '█'];
+const PX: &str = "██";
 
 #[derive(Debug, Clone, Copy)]
 pub struct Pixel {
-  texture: [char; 2],
+  texture: &'static str,
   pub color: Color,
   pub x: u16,
   pub y: u16,
@@ -17,17 +17,18 @@ impl Pixel {
     self.y = rand::thread_rng().gen_range(0..console_h);
     self
   }
-}
 
-impl std::fmt::Display for Pixel {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let [px1, px2] = self.texture;
-    write!(
-      f, "{pos}{color}{px1}{px2}{reset}",
-      pos = console::seq::goto(self.x, self.y),
-      color = console::seq::fg_rgb(self.color.r, self.color.g, self.color.b),
-      reset = console::seq::RESET,
-    )
+  pub fn to_string(&self) -> String {
+    let pos = console::seq::goto(self.x, self.y);
+    let color = console::seq::fg_rgb(self.color.r, self.color.g, self.color.b);
+    let mut px = String::with_capacity(
+      pos.len() + color.len() + self.texture.len() + console::seq::RESET.len() + 1
+    );
+    px.push_str(&pos);
+    px.push_str(&color);
+    px.push_str(self.texture);
+    px.push_str(console::seq::RESET);
+    px
   }
 }
 
@@ -57,21 +58,13 @@ impl From<(u16, u16)> for Pixel {
   }
 }
 
-impl From<(u16, u16, Color, [char; 2])> for Pixel {
-  fn from(px: (u16, u16, Color, [char; 2])) -> Self {
+impl From<(u16, u16, Color, &'static str)> for Pixel {
+  fn from(px: (u16, u16, Color, &'static str)) -> Self {
+    if px.3.chars().count() > 2 {
+      panic!("Pixel texture can't be more than 2 characters long!");
+    }
     Self {
       texture: px.3,
-      color: px.2,
-      x: px.0,
-      y: px.1,
-    }
-  }
-}
-
-impl From<(u16, u16, Color, char)> for Pixel {
-  fn from(px: (u16, u16, Color, char)) -> Self {
-    Self {
-      texture: [px.3, px.3],
       color: px.2,
       x: px.0,
       y: px.1,
