@@ -28,7 +28,6 @@ impl Renderer {
       let empty_scene = " ".repeat(w.into()).repeat(h.into());
       let pos_last = console::seq::goto(1, h);
       let green = console::seq::fg_rgb(150, 255, 120);
-      let mut last_frame_ms = 0 as u128;
       loop {
         let timer = std::time::Instant::now();
         let mut handler_borrow = self.handler.borrow_mut();
@@ -64,15 +63,14 @@ impl Renderer {
 
         println!(
           "{hide_cursor}{pos_start}{empty_scene}{pos_last}\
-          CTRL + Q to exit - FPS: {green}{fps} / {last_frame_ms}ms to draw\
+          CTRL + Q to exit - FPS: {green}{fps}\
           {ui}{draws}",
           hide_cursor = console::seq::CURSOR_HIDE,
           pos_start = console::seq::CURSOR_START,
           ui = ui.unwrap_or_default(),
           fps = self.fps_capper.fps,
         );
-        last_frame_ms = timer.elapsed().as_millis();
-        self.fps_capper.cap(last_frame_ms.try_into().unwrap());
+        self.fps_capper.cap(timer.elapsed().as_millis().try_into().unwrap());
       }
     } else {
       console::fg(console::FG::BrightRed);
